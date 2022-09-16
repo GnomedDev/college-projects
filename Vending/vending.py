@@ -1,12 +1,10 @@
 import contextlib
-import os
 import sqlite3
-from typing import Callable, Concatenate, Optional
-import typing
+from typing import Callable, Concatenate, Optional, ParamSpec, TypeVar
 
 import tabulate
 
-schema = """
+SCHEMA = """
     CREATE TABLE IF NOT EXISTS products (
         id    TEXT    PRIMARY KEY,
         name  TEXT    NOT NULL,
@@ -25,7 +23,7 @@ schema = """
 
 
 def clear_screen():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    print("\33[H\33[2J\33[3J", end="")
 
 def input_bool(question: str): 
     while True:
@@ -40,7 +38,7 @@ def input_bool(question: str):
 
 def db_connect() -> sqlite3.Connection:
     connection = sqlite3.connect("vending.db")
-    connection.executescript(schema)
+    connection.executescript(SCHEMA)
 
     with contextlib.suppress(sqlite3.IntegrityError):
         connection.executescript("""
@@ -59,8 +57,8 @@ def db_connect() -> sqlite3.Connection:
 
     return connection
 
-P = typing.ParamSpec("P")
-T = typing.TypeVar("T")
+P = ParamSpec("P")
+T = TypeVar("T")
 
 class VendingMachine:
     db_conn: sqlite3.Connection
@@ -156,6 +154,8 @@ class VendingMachine:
                         return
 
                 self.with_cursor(self.remove_stock, product_id)
+        except KeyboardInterrupt:
+            pass
         finally:
             self.db_conn.commit()
             self.db_conn.close()    
