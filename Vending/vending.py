@@ -53,7 +53,7 @@ def db_connect() -> sqlite3.Connection:
             INSERT INTO inventory(product_id)         VALUES('A1');
             INSERT INTO inventory(product_id)         VALUES('A2');
             INSERT INTO inventory(product_id)         VALUES('A3');
-            INSERT INTO inventory(product_id)         VALUES('A4');
+            INSERT INTO inventory(product_id, count)  VALUES('A4', 3);
             INSERT INTO inventory(product_id, count)  VALUES('A5', 0);
         """)
 
@@ -79,54 +79,66 @@ class VendingMachine:
     def print_inventory(self, cursor: sqlite3.Cursor):
         cursor.execute("""
             SELECT inventory.product_id, products.name, inventory.count, products.price FROM inventory
-            INNER JOIN products ON inventory.product_id=products.id
+            INNER JOIN products
+                ON inventory.product_id=products.id
         """)
 
         data = cursor.fetchall()
 
-        headers = ("Product ID", "Name", "Current Stock", "Price")
+        headers = ("Product ID", "Name", "Current Stock", "Price (£)")
         tabluated = tabulate.tabulate(data, headers=headers).splitlines()
         
         # Cross out lines for products with no stock
-        for (line, row) in enumerate(data):
-            if row[2] == 0:
+        for (line, [_, _, count, _]) in enumerate(data):
+            if count == 0:
                 STRIKE_THROUGH = "\u0336"
                 tabluated[line + 2] = STRIKE_THROUGH.join(tabluated[line + 2])
-        
+
         print("\n".join(tabluated))
 
 
-    def select_product(self, cursor: sqlite3.Cursor) -> Optional[str]:
-        product_id = input("Select a product: ")
-        if product_id == "ResetDB":
+    def select_product(self, cursor: sqlite3.Cursor) -> tuple[Optional[str], bool]:
+        product_id = input("Select a product or type `exit`: ").upper()
+        clear_screen()
+            
+        if product_id == "EXIT":
+            return (None, False)
+        elif product_id == "RESETDB":
             cursor.executescript("""
                 DROP TABLE inventory;
                 DROP TABLE products;
             """)
 
-            return None
+            return (None, False)
 
         cursor.execute("""
             SELECT name, price FROM products
             INNER JOIN inventory ON 
                 products.id = inventory.product_id AND
-                inventory.count > 1 
+                inventory.count >= 1 
 
             WHERE id = ?;
-        """, product_id)
+        """, (product_id,))
 
         row: Optional[tuple[str, int]] = cursor.fetchone()
         if row is None:
-            return None
+            cursor.execute("SELECT count FROM inventory WHERE product_id = ?", (product_id,))
+            count = cursor.fetchone()
+            if count is None:
+                print("Product does not exist! Please enter a valid ID.")
+            else:
+                print("Product is out of stock!")
+
+            return (None, True)
 
         name, price = row
-        price_pounds, price_pennies = divmod(price, 100)
+        if input_bool(f"Are you sure you want to purchase `{name}` for `£{price / 100:.2f}` (Y/N): "):
+            return (product_id, True)
 
-        if input_bool(f"Are you sure you want to purchase `{name}` for £`{price_pounds}.{price_pennies}` (Y/N): "):
-            return product_id
+        return (None, True)
 
     def remove_stock(self, cursor: sqlite3.Cursor, product_id: str):
-        cursor.execute("UPDATE ")
+        cursor.execute("UPDATE inventory SET count = count - 1 WHERE product_id = ?", (product_id,))
 
 
     def run(self):
@@ -136,14 +148,16 @@ class VendingMachine:
             while True:
                 self.with_cursor(self.print_inventory)
 
-                product_id = self.with_cursor(self.select_product)
+                (product_id, to_continue) = self.with_cursor(self.select_product)
                 if product_id is None:
-                    clear_screen()
-                    print("Product does not exist! Please enter a valid ID.")
-                    continue
+                    if to_continue:
+                        continue
+                    else:
+                        return
 
                 self.with_cursor(self.remove_stock, product_id)
         finally:
+            self.db_conn.commit()
             self.db_conn.close()    
 
 while VendingMachine().run(): pass
