@@ -1,6 +1,6 @@
 from enum import Enum, auto
 from operator import add, sub
-from typing import Callable, Generator, Iterable, Optional
+from typing import Callable, Generator, Iterable
 
 
 def clear_screen():
@@ -20,33 +20,12 @@ class Cell(Enum):
             case Cell.YELLOW_PLAYER:
                 return "🟡"
 
-def check_neighbours(iterable: Iterable[Cell]):
-    """Checks for 4 consecutive Cells of the same value
-
-    Args:
-        iterable: The iterable to find consecutive cells in.
-    """
-
-    same_count = 0
-    last_cell = None
-
-    for cell in iterable:
-        if cell != Cell.EMPTY and cell == last_cell:
-            same_count += 1
-            if same_count == 3:
-                return True
-        else:
-            last_cell = cell
-            same_count = 0
-
-    return False
-
 class Grid:
+    __slots__ = ("rows", "columns", "current_player", "inner")
+
     rows: int
     columns: int
-    
-    same_count: int
-    last_cell: Optional[Cell]
+    current_player: Cell
 
     # row = inner[i]
     # cell = inner[i][i]
@@ -59,6 +38,7 @@ class Grid:
 
         self.rows = rows
         self.columns = columns
+        self.current_player = Cell.RED_PLAYER
         self.inner = [[Cell.EMPTY for _ in range(rows)] for _ in range(columns)]
 
     def __str__(self) -> str:
@@ -74,6 +54,32 @@ class Grid:
 
         return out
 
+    def swap_current_player(self):
+        assert self.current_player != Cell.EMPTY
+
+        match self.current_player:
+            case Cell.RED_PLAYER:
+                self.current_player = Cell.YELLOW_PLAYER
+            case Cell.YELLOW_PLAYER:
+                self.current_player = Cell.RED_PLAYER
+
+    def check_neighbours(self, iterable: Iterable[Cell]):
+        """Checks for 4 consecutive Cells of self.current_player
+
+        Args:
+            iterable: The iterable to find consecutive cells in.
+        """
+
+        same_count = 0
+        for cell in iterable:
+            if cell != Cell.EMPTY and cell == self.current_player:
+                same_count += 1
+                if same_count == 4:
+                    return True
+            else:
+                same_count = 0
+
+        return False
 
     def diagnoal_iter(self, x: int, y: int, y_op: Callable[[int, int], int]) -> Generator[Cell, None, None]:
         """A generator to loop over `self.inner` diagonally
@@ -99,7 +105,7 @@ class Grid:
             i += 1
 
 
-    def add_piece(self, column_idx: int, kind: Cell) -> bool:
+    def add_piece(self, column_idx: int) -> bool:
         """Adds a piece to the Grid
 
         Args:
@@ -109,23 +115,25 @@ class Grid:
         Returns:
             If piece addition was successful
         """
-        assert kind != Cell.EMPTY
+        assert self.current_player != Cell.EMPTY
 
         for row_idx in range(self.rows - 2, -2, -1):
             if self.inner[row_idx][column_idx] == Cell.EMPTY:
-                self.inner[row_idx][column_idx] = kind
+                self.inner[row_idx][column_idx] = self.current_player
                 return True
 
         return False
 
     def check_win_condition(self) -> bool:
+        assert self.current_player != Cell.EMPTY
+
         # Check horizontal
-        if any(map(check_neighbours, self.inner)):
+        if any(map(self.check_neighbours, self.inner)):
             return True
 
         # Check vertical
         for column_idx in range(0, self.columns):
-            if check_neighbours((row[column_idx] for row in self.inner)):
+            if self.check_neighbours((row[column_idx] for row in self.inner)):
                 return True
 
         # Check diagonal
@@ -134,40 +142,36 @@ class Grid:
                 if cell == Cell.EMPTY:
                     continue
 
-                if check_neighbours(self.diagnoal_iter(x, y, add)):
+                if self.check_neighbours(self.diagnoal_iter(x, y, add)):
                     return True
 
-                if check_neighbours(self.diagnoal_iter(x, y, sub)):
+                if self.check_neighbours(self.diagnoal_iter(x, y, sub)):
                     return True
 
         return False
 
     def play(self):
-        current_player = Cell.RED_PLAYER
         while True:
             clear_screen()
             print(self)
             
-            index = input(f"{current_player} Column to drop piece on: ")
+            index = input(f"{self.current_player} Column to drop piece on: ")
 
             try:
                 index = int(index) - 1
             except ValueError:
                 continue
 
-            self.add_piece(index, current_player)
+            if not self.add_piece(index):
+                continue # No space on the board
+
             if self.check_win_condition():
                 # Do one more refresh to show winning play
                 clear_screen()
-                print(f"{self}\n{current_player} You won!")
+                print(f"{self}\n{self.current_player} You won!")
                 return
 
-            # Swap current player
-            match current_player:
-                case Cell.RED_PLAYER:
-                    current_player = Cell.YELLOW_PLAYER
-                case Cell.YELLOW_PLAYER:
-                    current_player = Cell.RED_PLAYER
+            self.swap_current_player()
 
 try:
     Grid().play()
