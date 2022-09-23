@@ -31,19 +31,15 @@ class Grid:
     # cell = inner[i][i]
     inner: list[list[Cell]]
 
-    def __init__(self, columns: int = 6, rows: int = 7) -> None:
-        if columns >= 10:
-            print("please don't")
-            quit()
-
+    def __init__(self, columns: int = 7, rows: int = 6) -> None:
         self.rows = rows
         self.columns = columns
         self.current_player = Cell.RED_PLAYER
-        self.inner = [[Cell.EMPTY for _ in range(rows)] for _ in range(columns)]
+        self.inner = [[Cell.EMPTY for _ in range(columns)] for _ in range(rows)]
 
     def __str__(self) -> str:
         # Start off with a line of indexes
-        out = " " + "  ".join(map(str, range(1, self.columns + 2))) + "\n"
+        out = " " + "  ".join(map(str, range(1, self.columns + 1))) + "\n"
 
         # Loop through each column and row, concatenating each cell
         for column in self.inner:
@@ -53,6 +49,7 @@ class Grid:
             out += "\n"
 
         return out
+
 
     def swap_current_player(self):
         assert self.current_player != Cell.EMPTY
@@ -117,7 +114,7 @@ class Grid:
         """
         assert self.current_player != Cell.EMPTY
 
-        for row_idx in range(self.rows - 2, -2, -1):
+        for row_idx in range(self.rows - 1, -1, -1):
             if self.inner[row_idx][column_idx] == Cell.EMPTY:
                 self.inner[row_idx][column_idx] = self.current_player
                 return True
@@ -176,4 +173,4 @@ class Grid:
 try:
     Grid().play()
 except KeyboardInterrupt:
-    pass
+    print()
