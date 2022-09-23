@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import Optional
+from typing import Optional, Iterable
 
 def clear_screen():
     print("\33[H\33[2J\33[3J", end="")
@@ -73,36 +73,29 @@ class Grid:
         return False
 
     def check_win_condition(self) -> bool:
+        def check_neighbours(iterable: Iterable[Cell]):
+            same_count = 0
+            last_cell = None
+
+            for cell in iterable:
+                if cell != Cell.EMPTY and cell == last_cell:
+                    same_count += 1
+                    if same_count == 3:
+                        return True
+                else:
+                    last_cell = cell
+                    same_count = 0
+
+            return False
 
         # Check horizontal
-        for row in self.inner:
-            same_count = 0
-            last_cell = None
+        if any(check_neighbours, self.inner):
+            return True
 
-            for cell in row:
-                if cell != Cell.EMPTY and cell == last_cell:
-                    same_count += 1
-
-                    if same_count == 3:
-                        return True
-                else:
-                    last_cell = cell
-                    same_count = 0
-
-        for column_idx in range(0, self.columns):    
-            same_count = 0
-            last_cell = None
-
-            for row in self.inner:
-                cell = row[column_idx]
-                if cell != Cell.EMPTY and cell == last_cell:
-                    same_count += 1
-
-                    if same_count == 3:
-                        return True
-                else:
-                    last_cell = cell
-                    same_count = 0
+        # Check vertical
+        for column_idx in range(0, self.columns):
+            if check_neighbours((cell[column_idx] for row in self.inner)):
+                return True
 
         return False
 
