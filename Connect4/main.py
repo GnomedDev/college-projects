@@ -1,5 +1,7 @@
 from enum import Enum, auto
-from typing import Optional, Iterable
+from operator import add, sub
+from typing import Callable, Generator, Iterable, Optional
+
 
 def clear_screen():
     print("\33[H\33[2J\33[3J", end="")
@@ -18,6 +20,27 @@ class Cell(Enum):
             case Cell.YELLOW_PLAYER:
                 return "🟡"
 
+def check_neighbours(iterable: Iterable[Cell]):
+    """Checks for 4 consecutive Cells of the same value
+
+    Args:
+        iterable: The iterable to find consecutive cells in.
+    """
+
+    same_count = 0
+    last_cell = None
+
+    for cell in iterable:
+        if cell != Cell.EMPTY and cell == last_cell:
+            same_count += 1
+            if same_count == 3:
+                return True
+        else:
+            last_cell = cell
+            same_count = 0
+
+    return False
+
 class Grid:
     rows: int
     columns: int
@@ -28,7 +51,6 @@ class Grid:
     # row = inner[i]
     # cell = inner[i][i]
     inner: list[list[Cell]]
-
 
     def __init__(self, columns: int = 6, rows: int = 7) -> None:
         if columns >= 10:
@@ -53,6 +75,30 @@ class Grid:
         return out
 
 
+    def diagnoal_iter(self, x: int, y: int, y_op: Callable[[int, int], int]) -> Generator[Cell, None, None]:
+        """A generator to loop over `self.inner` diagonally
+
+        This is performed by taking `x` and `y` from the current position on the board
+        and allows me to continue using check_neighbours for the actual checking of
+        "are there 4 matching cells".
+
+        Args:
+            x: The x position of the starting Cell.
+            y: The y position of the starting Cell.
+            y_op: The operation to perform on `y`, either `add` or `sub` for up right or down right matches.
+        """
+
+        i = 0
+        while True:
+            try:
+                yield self.inner[y_op(y, i)][x + i]
+            except IndexError:
+                # Went off the board, no more Cells
+                return
+
+            i += 1
+
+
     def add_piece(self, column_idx: int, kind: Cell) -> bool:
         """Adds a piece to the Grid
 
@@ -73,29 +119,26 @@ class Grid:
         return False
 
     def check_win_condition(self) -> bool:
-        def check_neighbours(iterable: Iterable[Cell]):
-            same_count = 0
-            last_cell = None
-
-            for cell in iterable:
-                if cell != Cell.EMPTY and cell == last_cell:
-                    same_count += 1
-                    if same_count == 3:
-                        return True
-                else:
-                    last_cell = cell
-                    same_count = 0
-
-            return False
-
         # Check horizontal
-        if any(check_neighbours, self.inner):
+        if any(map(check_neighbours, self.inner)):
             return True
 
         # Check vertical
         for column_idx in range(0, self.columns):
-            if check_neighbours((cell[column_idx] for row in self.inner)):
+            if check_neighbours((row[column_idx] for row in self.inner)):
                 return True
+
+        # Check diagonal
+        for (y, row) in enumerate(self.inner):
+            for (x, cell) in enumerate(row):
+                if cell == Cell.EMPTY:
+                    continue
+
+                if check_neighbours(self.diagnoal_iter(x, y, add)):
+                    return True
+
+                if check_neighbours(self.diagnoal_iter(x, y, sub)):
+                    return True
 
         return False
 
