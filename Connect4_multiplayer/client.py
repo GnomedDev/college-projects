@@ -23,11 +23,11 @@ class ClientGrid:
         self.columns = game_start.columns
         self.client_player = client_player
         self.current_player = Cell.RED_PLAYER
-        self.inner = [[Cell.EMPTY for _ in range(self.rows)] for _ in range(self.columns)]
+        self.inner = [[Cell.EMPTY for _ in range(self.columns)] for _ in range(self.rows)]
 
     def __str__(self) -> str:
         # Start off with a line of indexes
-        out = " " + "  ".join(map(str, range(1, self.columns + 2))) + "\n"
+        out = " " + "  ".join(map(str, range(1, self.columns + 1))) + "\n"
 
         # Loop through each column and row, concatenating each cell
         for column in self.inner:

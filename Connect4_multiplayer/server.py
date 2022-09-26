@@ -20,12 +20,12 @@ class ServerGrid:
     has_finished: asyncio.Event
 
     def __init__(self, yellow_player: WebSocketServerProtocol):
-        self.rows = 7
-        self.columns = 6
+        self.rows = 6
+        self.columns = 7
         self.yellow_player = yellow_player
         self.has_finished = asyncio.Event()
         self.current_player = Cell.RED_PLAYER
-        self.inner = [[Cell.EMPTY for _ in range(self.rows)] for _ in range(self.columns)]
+        self.inner = [[Cell.EMPTY for _ in range(self.columns)] for _ in range(self.rows)]
 
 
     def get_connection(self, cell: Cell) -> WebSocketServerProtocol:
@@ -99,7 +99,7 @@ class ServerGrid:
         """
         assert self.current_player != Cell.EMPTY
 
-        for row_idx in range(self.rows - 2, -2, -1):
+        for row_idx in range(self.rows - 1, -1, -1):
             if self.inner[row_idx][column_idx] == Cell.EMPTY:
                 self.inner[row_idx][column_idx] = self.current_player
                 return True
