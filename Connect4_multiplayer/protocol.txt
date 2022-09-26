@@ -1,0 +1,18 @@
+Client and server model
+JSON over websockets
+
+Invalid message instantly disconnects
+
+Client -> Server messages:
+CAT protocol (command action target?)
+
+LOGIN = {"c": "login", "a": {"username": USERNAME}}
+CREATE_ROOM = {"c": "create", "a": {}}
+CONNECT = {"c": "connect", "a": {}, "t": ROOM_ID}
+PLAY_PIECE = {"c": "play_piece", "a": {"column": COLUMN_IDX}}
+
+Server -> Client messages:
+
+CURRENT_ROOMS = {"rooms": {room_id: USERNAME}}
+GAME_START = {"client_player": CELL, "rows": ROWS, "columns": COLUMNS}
+BOARD_UPDATE = {"board": BOARD, "game_end": bool}
