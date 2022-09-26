@@ -1,10 +1,14 @@
 import asyncio
 import json
+from typing import Awaitable
 
 from websockets.client import WebSocketClientProtocol, connect
 
 from shared import *
 
+
+def ainput(question: str) -> Awaitable[str]:
+    return asyncio.to_thread(input, question)
 
 class ClientGrid:
     __slots__ = ("rows", "columns", "client_player", "current_player", "inner")
@@ -58,13 +62,13 @@ class ClientGrid:
             clear_screen()
             print(self)
             if self.current_player == self.client_player:
-                index = input(f"{self.current_player} Column to drop piece on: ")
+                index = await ainput(f"{self.current_player} Column to drop piece on: ")
 
                 try:
                     index = int(index) - 1
                 except ValueError:
                     continue
-                
+
                 if index >= self.columns:
                     continue
 
@@ -86,9 +90,7 @@ class ClientGrid:
 
             self.swap_current_player()
 
-async def main():
-    username = input("Enter your username: ")
-    server_uri = input("Enter the URI of the server: ")
+async def main(username: str, server_uri: str):
     async with connect(server_uri) as server_connection:
         await server_connection.send(ClientServerMessage(
             c = "login",
@@ -102,7 +104,7 @@ async def main():
             for room_id, username in current_rooms.rooms.items():
                 print(f"{room_id}: {username}")
 
-            room_to_join = input("Choose the room number to join or type CREATE: ")
+            room_to_join = await ainput("Choose the room number to join or type CREATE: ")
             try:
                 room_to_join = int(room_to_join)
             except ValueError:
@@ -135,4 +137,7 @@ async def main():
             else:
                 current_rooms = CurrentRooms.parse_obj(response)
 
-asyncio.run(main())
+username = input("Enter your username: ")
+server_uri = input("Enter the URI of the server: ")
+
+asyncio.run(main(username, server_uri))
