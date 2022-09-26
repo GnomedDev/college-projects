@@ -8,3 +8,5 @@ Most (if not all) of these projects will be Python due to requirements of the co
 - Vending - A TUI Vending machine simulation requiring `tabulate` from `pip` using sqlite to store stock and products.
 
 - Connect4 - A two player TUI Connect 4 copy with customisable board size.
+
+- Connect4 Multiplayer - Connect4, but with a client and server script using `websockets` to communicate
