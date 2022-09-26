@@ -22,6 +22,15 @@ class Cell(Enum):
             case Cell.YELLOW_PLAYER:
                 return "🟡"
 
+    def player_name(self):
+        assert self != self.EMPTY
+
+        match self:
+            case Cell.RED_PLAYER:
+                return "Red"
+            case Cell.YELLOW_PLAYER:
+                return "Yellow"
+
     def swap(self) -> Self:
         assert self != self.EMPTY
 
@@ -34,7 +43,7 @@ class Cell(Enum):
 class ClientServerMessage(pydantic.BaseModel):
     c: str
     a: dict[str, Any]
-    t: Optional[str] = None
+    t: Optional[int] = None
 
 class CurrentRooms(pydantic.BaseModel):
     rooms: dict[int, str]
@@ -42,7 +51,6 @@ class CurrentRooms(pydantic.BaseModel):
 class GameStart(pydantic.BaseModel):
     rows: int
     columns: int
-    client_player: Cell
 
 class BoardUpdate(pydantic.BaseModel):
     board: list[list[Cell]]

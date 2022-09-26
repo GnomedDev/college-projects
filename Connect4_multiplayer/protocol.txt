@@ -14,5 +14,5 @@ PLAY_PIECE = {"c": "play_piece", "a": {"column": COLUMN_IDX}}
 Server -> Client messages:
 
 CURRENT_ROOMS = {"rooms": {room_id: USERNAME}}
-GAME_START = {"client_player": CELL, "rows": ROWS, "columns": COLUMNS}
+GAME_START = {"rows": ROWS, "columns": COLUMNS}
 BOARD_UPDATE = {"board": BOARD, "game_end": bool}
