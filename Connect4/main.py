@@ -157,7 +157,10 @@ class Grid:
             try:
                 index = int(index) - 1
             except ValueError:
-                continue
+                continue # User did not type a valid number
+
+            if 0 < index > self.columns:
+                continue # User selected index off the board
 
             if not self.add_piece(index):
                 continue # No space on the board
