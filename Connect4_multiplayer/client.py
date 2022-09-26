@@ -137,7 +137,30 @@ async def main(username: str, server_uri: str):
             else:
                 current_rooms = CurrentRooms.parse_obj(response)
 
-username = input("Enter your username: ")
-server_uri = input("Enter the URI of the server: ")
+with open("last_credentials.json", "r+") as last_creds_file:
+    last_creds_raw = last_creds_file.read()
+    if last_creds_raw == "":
+        saved_username = formatted_username = ""
+        saved_server_uri = formatted_server_uri = ""
+    else:
+        last_creds_file.seek(0)
+        last_creds = json.loads(last_creds_raw)
+
+        saved_username = last_creds["username"]
+        saved_server_uri = last_creds["server_uri"]
+
+        formatted_username = f" ({saved_username})"
+        formatted_server_uri = f" ({saved_server_uri})"
+
+    while True:
+        username = input(f"Enter your username{formatted_username}: ") or saved_username
+        server_uri = input(f"Enter the URI of the server{formatted_server_uri}: ") or saved_server_uri
+
+        if username and server_uri:
+            break
+        else:
+            print("Please enter both a username and server_uri!")
+
+    json.dump({"username": username, "server_uri": server_uri}, last_creds_file)
 
 asyncio.run(main(username, server_uri))
