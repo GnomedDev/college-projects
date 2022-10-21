@@ -1,0 +1,7 @@
+Validation of Coin Count:
+- Store map of {coin type: desired bag weight}
+- Store map of {coin type: weight of each coin}
+- Coin diff = (Desired coin weight - Entered coin weight) / Weight of each coin
+
+Other stuff seems to just be fluff, saving and writing to files is language specific
+

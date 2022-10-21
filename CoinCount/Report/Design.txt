@@ -1,0 +1,7 @@
+Function per menu item
+Use a class to wrap the data instead of globals
+CoinCount.txt will be JSON because "text file" is not defined
+
+{
+    "name": {"total_bags": 123, "correct_bags": 123}
+}
