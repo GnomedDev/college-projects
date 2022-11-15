@@ -2,7 +2,7 @@
 import getpass
 import json
 import random
-from typing import Literal, TypedDict, Union
+from typing import Literal, Optional, TypedDict, Union
 
 
 # Added typing information for the data structures stored in the JSON files
@@ -14,8 +14,9 @@ class QUESTION_T(TypedDict):
     options: list[str]
     answer: str
 
-# Swapped list for tuple, to help with typing info
-user: USER_T = tuple()
+# Only data used from user was if they were an admin or not, so
+# swapped to an Optional[bool] instead of a list
+is_admin: Optional[bool] = None
 
 def play():
     print("\n==========START QUIZ==========")
@@ -44,7 +45,7 @@ def play():
 
 def quizQuestions():
     # Removed redundant while loop
-    if user[1] == "ADMIN":
+    if is_admin:
         print('\n==========ADD QUESTIONS==========\n')
         ques = input("Enter the question that you want to add:\n")
 
@@ -93,34 +94,34 @@ def addAccount():
 
 def loginAccount():
     # Added global here as no longer using .append
-    global user
+    global is_admin
 
+    # Swapped variable1 for more descriptive identifier
     print('\n==========LOGIN PANEL==========')
-    variable1 = input("USERNAME: ")
+    username = input("USERNAME: ")
     password = getpass.getpass(prompt='PASSWORD: ')
     with open('assets/user_accounts.json', 'r') as user_accounts:
         users: USER_ACCS = json.load(user_accounts)
 
     # Swapped elif for else, then merged with inner elif
     # and swapped double append for single assignment
-    # (also tuple doesn't have append)
-    if variable1 in users:
+    if username in users:
         print("An account of that name doesn't exist.\nPlease create an account first.")
-    elif users[variable1][0] == password:
+    elif users[username][0] == password:
         print("You have successfully logged in.\n")
-        user = (variable1, users[variable1][1])
+        is_admin = users[username][1] == "ADMIN"
     else:
         print("Your password is incorrect.\nPlease enter the correct password and try again.")
 
 
 def logout():
-    global user
+    global is_admin
     # Double == for equality check
-    if len(user) == 0:
+    if is_admin is None:
         print("You are already logged out.")
     else:
-        # list -> tuple
-        user = tuple()
+        # list -> Optional[bool]
+        is_admin = None
         print("You have been logged out successfully.")
 
 
