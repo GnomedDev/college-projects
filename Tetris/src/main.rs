@@ -1,23 +1,38 @@
+#![deny(rust_2018_idioms)]
+
 mod assets;
+mod board;
 mod constants;
 mod error;
 mod interval;
+mod randomizer;
 
+use std::time::Duration;
+
+use board::Board;
+use randomizer::Randomizer;
 use sdl2::{
     event::Event,
     image::{self, InitFlag, LoadTexture},
     keyboard::Keycode,
     rect::Rect,
     render::{Texture, WindowCanvas},
+    EventPump,
 };
 
-use constants::{BOARD_OFFSET, FRAME_SLEEP, SCALE_FACTOR, TILE_SIZE};
+use constants::{BOARD_OFFSET, SCALE_FACTOR, TILE_SIZE};
 use error::Error;
+use interval::Interval;
+
+struct Textures<'c> {
+    tile: Texture<'c>,
+    board: Texture<'c>,
+}
 
 /// A single tile, with the original piece colour.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
 #[repr(u8)]
-enum Tile {
+pub enum Tile {
     I = 0,
     O = 1,
     T = 2,
@@ -25,52 +40,138 @@ enum Tile {
     Z = 4,
     L = 5,
     J = 6,
+    #[default]
     None = 7,
 }
 
-fn render(
-    canvas: &mut WindowCanvas,
-    board_texture: &Texture,
-    tile: &Texture,
-    board: &[Tile; 10 * 20],
-) -> Result<(), String> {
-    canvas.clear();
-    canvas.copy(board_texture, None, None)?;
+enum GameState {
+    /// Next tick, spawn a new piece
+    Placed,
+    /// Next tick, drop current piece down
+    Dropping(Tile, (i32, i32)),
+}
 
-    let (x_offset, y_offset) = BOARD_OFFSET;
-    for y in 0..20_i32 {
-        for x in 0..10_i32 {
-            let colour = board[(y * 10 + x) as usize] as u8;
-            let src = Rect::new(
-                colour as i32 * TILE_SIZE,
-                0,
-                TILE_SIZE as u32,
-                TILE_SIZE as u32,
-            );
+struct Tetris<'c> {
+    current_state: GameState,
+    ticker: Interval,
+    board: Board,
 
-            let dst = Rect::new(
-                x_offset + (x * TILE_SIZE * SCALE_FACTOR as i32),
-                y_offset + (y * TILE_SIZE * SCALE_FACTOR as i32),
-                TILE_SIZE as u32 * SCALE_FACTOR as u32,
-                TILE_SIZE as u32 * SCALE_FACTOR as u32,
-            );
+    rng: Randomizer,
+    textures: Textures<'c>,
+}
 
-            canvas.copy(tile, src, dst)?;
+impl<'c> Tetris<'c> {
+    fn render_tile(
+        &self,
+        canvas: &mut WindowCanvas,
+        x: i32,
+        y: i32,
+        tile: Tile,
+    ) -> Result<(), String> {
+        let (x_offset, y_offset) = BOARD_OFFSET;
+
+        let src = Rect::new(
+            tile as u8 as i32 * TILE_SIZE,
+            0,
+            TILE_SIZE as u32,
+            TILE_SIZE as u32,
+        );
+
+        let dst = Rect::new(
+            x_offset + (x * TILE_SIZE * SCALE_FACTOR as i32),
+            y_offset + (y * TILE_SIZE * SCALE_FACTOR as i32),
+            TILE_SIZE as u32 * SCALE_FACTOR as u32,
+            TILE_SIZE as u32 * SCALE_FACTOR as u32,
+        );
+
+        canvas.copy(&self.textures.tile, src, dst)
+    }
+
+    fn render(&self, canvas: &mut WindowCanvas) -> Result<(), String> {
+        canvas.clear();
+        canvas.copy(&self.textures.board, None, None)?;
+
+        for y in 0..20_i32 {
+            for x in 0..10_i32 {
+                let tile = self.board.index(x, y).unwrap();
+                self.render_tile(canvas, x, y, tile)?;
+            }
+        }
+
+        if let GameState::Dropping(tile, (x, y)) = self.current_state {
+            self.render_tile(canvas, x, y, tile)?;
+        }
+
+        canvas.present();
+        Ok(())
+    }
+
+    pub fn game_tick(&mut self) {
+        match &mut self.current_state {
+            GameState::Dropping(_, (x, y)) => {
+                if let Some(next_tile) = self.board.index(*x, *y + 1) {
+                    if next_tile != Tile::None {
+                        self.current_state = GameState::Placed;
+                    } else {
+                        *y += 1;
+                    }
+                } else {
+                    self.current_state = GameState::Placed;
+                }
+            }
+            GameState::Placed => {
+                let tile = self.rng.next();
+
+                self.current_state = GameState::Dropping(tile, (5, 0));
+            }
         }
     }
 
-    canvas.present();
+    pub fn start_render_loop(
+        mut self,
+        mut canvas: WindowCanvas,
+        mut events: EventPump,
+    ) -> Result<(), Error> {
+        loop {
+            for event in events.poll_iter() {
+                match event {
+                    Event::Quit { .. } => {
+                        return Ok(());
+                    }
+                    Event::KeyDown {
+                        keycode, repeat, ..
+                    } => match keycode {
+                        Some(Keycode::Escape) => return Ok(()),
+                        Some(Keycode::Left) => {
+                            if let GameState::Dropping(tile, (x, y)) = &mut self.current_state {
+                                *x -= 1;
+                            }
+                        }
+                        Some(Keycode::Delete) => {
+                            self.board = Board::default();
+                            self.current_state = GameState::Placed;
+                        }
+                        _ => {}
+                    },
+                    _ => {}
+                }
+            }
 
-    Ok(())
+            if self.ticker.try_tick() {
+                self.game_tick();
+            }
+
+            self.render(&mut canvas)?;
+        }
+    }
 }
 
 fn main() -> Result<(), Error> {
     let sdl_context = sdl2::init()?;
     let _image_handle = image::init(InitFlag::PNG)?;
 
-    let video_subsystem = sdl_context.video()?;
-
-    let mut canvas = video_subsystem
+    let canvas = sdl_context
+        .video()?
         .window(
             "Hello World",
             256 * SCALE_FACTOR as u32,
@@ -85,24 +186,17 @@ fn main() -> Result<(), Error> {
     let tile_tex = texture_creator.load_texture_bytes(assets::TILES)?;
     let board_tex = texture_creator.load_texture_bytes(assets::PLAYFIELD)?;
 
-    let mut board = [Tile::None; 10 * 20];
-    let mut event_pump = sdl_context.event_pump()?;
+    let tetris = Tetris {
+        board: Board::default(),
+        current_state: GameState::Placed,
+        ticker: Interval::new(Duration::from_millis(1000)),
 
-    loop {
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => {
-                    return Ok(());
-                }
-                _ => {}
-            }
-        }
+        rng: Randomizer::new(),
+        textures: Textures {
+            tile: tile_tex,
+            board: board_tex,
+        },
+    };
 
-        render(&mut canvas, &board_tex, &tile_tex, &board)?;
-        std::thread::sleep(FRAME_SLEEP);
-    }
+    tetris.start_render_loop(canvas, sdl_context.event_pump()?)
 }
